@@ -121,6 +121,32 @@ RetumiloFile >> lastSeparator [
 	^ (self class separatorsForSuffix: (self suffix)) last 
 ]
 
+{ #category : 'loading and saving' }
+RetumiloFile >> load [
+
+	| readStream str startPosition separator currentCategory categoryName |
+	fileLocator exists ifFalse: [ ^ self ].
+	readStream := fileLocator readStream.
+	startPosition := 0.
+	(str := self initializeLoadingOn: readStream) ifNil: [ ^ self ].
+	currentCategory := nil.
+	readStream atEnd
+		ifTrue: [ self createSingletonSectionWith: str ]
+		ifFalse: [
+			separator := str.
+			[ readStream atEnd ] whileFalse: [
+				categoryName := readStream upToAll: self class magicSequence.
+				(currentCategory isNil or: [ categoryName ~= currentCategory name ])
+					ifTrue: [
+					currentCategory := self addCategoryName: categoryName before: nil ].
+				currentCategory
+					loadSectionOn: readStream
+					separator: separator
+					startPosition: startPosition.
+				startPosition := readStream position ] ].
+	readStream close
+]
+
 { #category : 'loading  and saving' }
 RetumiloFile >> makeBackup [
 
