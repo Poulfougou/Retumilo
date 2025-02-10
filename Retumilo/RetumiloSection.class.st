@@ -8,7 +8,8 @@ Class {
 		'category',
 		'contents',
 		'startPosition',
-		'stopPosition'
+		'stopPosition',
+		'tag'
 	],
 	#category : 'Retumilo',
 	#package : 'Retumilo'
@@ -49,6 +50,26 @@ RetumiloSection >> contents: anObject [
 { #category : 'accessing' }
 RetumiloSection >> contentsSize [
 	^contents size
+]
+
+{ #category : 'accessing' }
+RetumiloSection >> icon [
+
+	^ tag
+		  ifTrue: [ #smallDoIt ]
+		  ifFalse: [ #empty ]
+]
+
+{ #category : 'initialization' }
+RetumiloSection >> initialize [
+
+	tag := false
+]
+
+{ #category : 'testing' }
+RetumiloSection >> isTagged [
+
+	^ tag
 ]
 
 { #category : 'accessing' }
@@ -127,4 +148,11 @@ RetumiloSection >> stopPosition [
 RetumiloSection >> stopPosition: anObject [
 
 	stopPosition := anObject
+]
+
+{ #category : 'searching' }
+RetumiloSection >> tagIfFound: aString [
+
+	tag := (contents findString: aString startingAt: 1) > 0.
+	^ tag
 ]

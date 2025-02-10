@@ -14,8 +14,8 @@ Class {
 		'toolBar',
 		'statusBar',
 		'inEdition',
-		'patternField',
-		'searchField'
+		'searchField',
+		'sectionAdded'
 	],
 	#category : 'Retumilo',
 	#package : 'Retumilo'
@@ -39,60 +39,63 @@ RetumiloPresenter class >> buildEditionMenuWith: presenter [
 		  yourself
 ]
 
-{ #category : 'action - edition' }
+{ #category : 'actions - edition' }
 RetumiloPresenter >> acceptEdition: aText [
 
-	| sct optFile acceptedText |
-	optFile := filesList selectedItem.
+	| file acceptedText |
+	file := filesList selectedItem.
 	acceptedText := aText withUnixLineEndings.
+	acceptedText isEmpty ifTrue: [ ^ self ].
 	acceptedText last == Character lf ifFalse: [
 		acceptedText := acceptedText , (String with: Character lf) ].
-	optFile isOPTFile
-		ifTrue: [
-			sct := sectionsList selectedItem.
-			sct ifNotNil: [ sct contents: acceptedText ] ]
-		ifFalse: [ " case of unformated file text"
-			optFile categories first sections first contents:
-				acceptedText ].
-	optFile save.
-	self updateSectionsList. 
+	file
+		acceptEdition: acceptedText
+		for: sectionsList selectedItem
+		sectionAdded: sectionAdded.
+	sectionAdded ifTrue: [filesList selectItem: file].
+	self searchIn: self model.
+	sectionAdded := false.
 	inEdition := false
 ]
 
-{ #category : 'action - categories' }
+{ #category : 'actions - categories' }
 RetumiloPresenter >> addCategory [
 
-	| categoryName |
+	| categoryName categorie |
 	categoryName := (TextEntryDialogWindow new
-		 title: 'Adding a category';
-		 text: 'category name ?';
-		 entryText: '') openModal entryText.
-	self model addCategoryName: categoryName before: categoriesList selectedItem.
-	self updateCategoriesList
+		                 title: 'Adding a category';
+		                 text: 'category name ?';
+		                 entryText: '') openModal entryText.
+	categorie := filesList selectedItem
+		addCategoryName: categoryName
+		before: categoriesList selectedItem.
+	categoriesList refresh.
+	categoriesList selectItem: categorie
 ]
 
-{ #category : 'action - sections' }
+{ #category : 'actions - sections' }
 RetumiloPresenter >> addSection [
 
 	| section |
 	section := sectionsList selectedItem.
-	categoriesList selectedItem
-		addSectionBefore: section.
-	self updateSectionsList
+	section := categoriesList selectedItem addNewSectionBefore: section.
+	sectionsList refresh.
+	sectionsList selectItem: section
 ]
 
-{ #category : 'action - edition' }
+{ #category : 'actions - edition' }
 RetumiloPresenter >> cancelEdition [
 
-	| sct optFile |
-	optFile := filesList selectedItem.
-	optFile ifNotNil: [
-		optFile isOPTFile
+	| sct file |
+	file := filesList selectedItem.
+	file ifNotNil: [
+		file isOPTFile
 			ifTrue: [
 				sct := sectionsList selectedItem.
-				sct ifNotNil: [ text text: sct contents ] ]
-			ifFalse: [ text text: optFile category first sections first contents ] ].
+				sectionsList selectItem: sct ]
+			ifFalse: [ filesList selectItem: file ] ].
 
+	sectionAdded := false.
 	inEdition := false
 ]
 
@@ -119,54 +122,58 @@ RetumiloPresenter >> categoriesListMenu [
 		  addItem: [ :item |
 			  item
 				  name: 'Rename';
+				  enabled: [ categoriesList selection selectedItem notNil ];
 				  action: [ self renameCategory ] ];
 		  addItem: [ :item |
 			  item
 				  name: 'Move up';
+				  enabled: [ categoriesList selection selectedItem notNil ];
 				  action: [ self moveCategoryUp ] ];
 		  addItem: [ :item |
 			  item
 				  name: 'Move down';
+				  enabled: [ categoriesList selection selectedItem notNil ];
 				  action: [ self moveCategoryDown ] ];
 		  addItem: [ :item |
 			  item
 				  name: 'Delete';
+				  enabled: [ categoriesList selection selectedItem notNil ];
 				  action: [ self deleteCategory ] ];
 		  yourself
 ]
 
-{ #category : 'action - files' }
+{ #category : 'actions - files' }
 RetumiloPresenter >> computeElocFile [
 ]
 
 { #category : 'connexion' }
 RetumiloPresenter >> connectCategoriesList [
 
-	categoriesList contextMenu: [ self categoriesListMenu ].
-	categoriesList whenSelectionChangedDo: [ :selection |
-		selection selectedItem
+	categoriesList transmitTo: sectionsList transform: [ :aCategory |
+		aCategory ifNotNil: [ aCategory sections ] ifNil: [ #(  ) ] ].
+	categoriesList transmitDo: [ :aCategory |
+		aCategory
 			ifNotNil: [
-				statusBar pushMessage:
-					selection selectedItem numberOfLinesOfCode asString ]
-			ifNil: [
-				filesList selectedItem
-					ifNil: [ statusBar popMessage ]
-					ifNotNil: [
-						statusBar pushMessage:
-							filesList selectedItem numberOfLinesOfCode asString ] ].
-		self updateSectionsList ]
+			statusBar pushMessage: aCategory numberOfLinesOfCode asString ]
+			ifNil: [ statusBar popMessage ] ]
 ]
 
 { #category : 'connexion' }
 RetumiloPresenter >> connectFilesList [
 
-	filesList contextMenu: [ self filesListMenu ].
-	filesList whenSelectionChangedDo: [ :selection |
-		selection selectedItem
+	filesList transmitTo: categoriesList transform: [ :aFile |
+		(aFile notNil and: [ aFile isOPTFile ])
+			ifTrue: [ aFile categories ]
+			ifFalse: [ #(  ) ] ].
+	filesList transmitTo: text transform: [ :aFile |
+		(aFile notNil and: [ aFile isOPTFile not ])
+			ifTrue: [ aFile categories first sections first contents ]
+			ifFalse: [ '' ] ].
+	filesList transmitDo: [ :aFile |
+		aFile
 			ifNotNil: [
-			statusBar pushMessage: selection selectedItem numberOfLinesOfCode asString ]
-			ifNil: [ statusBar popMessage ].
-		self updateCategoriesList ]
+			statusBar pushMessage: aFile numberOfLinesOfCode asString ]
+			ifNil: [ statusBar popMessage ] ]
 ]
 
 { #category : 'initialization' }
@@ -181,44 +188,46 @@ RetumiloPresenter >> connectPresenters [
 { #category : 'connexion' }
 RetumiloPresenter >> connectSectionsList [
 
-	sectionsList contextMenu: [ self sectionsListMenu ].
-	sectionsList whenSelectionChangedDo: [ :selection |
-		selection selectedItem
+	sectionsList
+		transmitTo: text
+		transform: [ :aSection |
+			aSection ifNotNil: [ aSection contents ] ifNil: [ '' ] ]
+		postTransmission: [ :destination :origin :obj |
+			(obj notNil and: [ obj isTagged and: [ searchField text isNotEmpty ] ])
+				ifTrue: [ self selectFieldInSection: obj ] ].
+	sectionsList transmitDo: [ :aSection |
+		aSection
 			ifNotNil: [
-				text text: selection selectedItem contents.
-				statusBar pushMessage:
-					selection selectedItem numberOfLinesOfCode asString.
-				inEdition := false ]
-			ifNil: [
-				text text: ''.
-				categoriesList selectedItem
-					ifNil: [ statusBar popMessage ]
-					ifNotNil: [
-						statusBar pushMessage:
-							categoriesList selectedItem numberOfLinesOfCode asString.
-						inEdition := false ] ] ]
+			statusBar pushMessage: aSection numberOfLinesOfCode asString ]
+			ifNil: [ statusBar popMessage ] ]
 ]
 
 { #category : 'connexion' }
 RetumiloPresenter >> connectTree [
 
-	directoriesTree contextMenu: [ self treeMenu ].
-	directoriesTree whenSelectionChangedDo: [ :selection |
-		self updateFilesList ]
+	directoriesTree
+		transmitTo: filesList
+		transform: [ :aDir | aDir ifNotNil: [ aDir files ] ifNil: [ #(  ) ] ].
+	directoriesTree transmitDo: [ :aDir |
+		aDir
+			ifNotNil: [
+			statusBar pushMessage: aDir numberOfLinesOfCode asString ]
+			ifNil: [ statusBar popMessage ] ]
 ]
 
-{ #category : 'action - files' }
+{ #category : 'actions - files' }
 RetumiloPresenter >> createFile [
 
-	| fileName directory |
+	| fileName directory file |
 	fileName := (TextEntryDialogWindow new
 		             title: 'Create a file';
 		             text: 'file name ?';
 		             entryText: '') openModal entryText.
 	directory := directoriesTree selectedItem.
 	(fileName isNil or: [ directory isNil ]) ifTrue: [ ^ self ].
-	(directory fileReference / fileName) writeStream close.
-	self updateFilesList
+	file := directory createFileNamed: fileName.
+	directoriesTree selectItem: directory.
+	filesList selectItem: file
 ]
 
 { #category : 'layout' }
@@ -233,11 +242,7 @@ RetumiloPresenter >> defaultLayout [
 						    add: directoriesTree;
 						    add: searchField expand: false;
 						    yourself);
-				   add: (SpBoxLayout newTopToBottom
-						    spacing: 2;
-						    add: filesList;
-						    add: patternField expand: false;
-						    yourself);
+				   add: filesList;
 				   add: categoriesList;
 				   add: sectionsList;
 				   yourself);
@@ -260,27 +265,31 @@ RetumiloPresenter >> defineRootDir [
 	directoriesTree roots: { application rootDir }
 ]
 
-{ #category : 'action - categories' }
+{ #category : 'actions - categories' }
 RetumiloPresenter >> deleteCategory [
 
-	self model deleteCategory: categoriesList selectedItem.
-	self updateCategoriesList
+	filesList selectedItem deleteCategory: categoriesList selectedItem.
+	categoriesList unselectAll.
+	categoriesList refresh
 ]
 
-{ #category : 'action - files' }
+{ #category : 'actions - files' }
 RetumiloPresenter >> deleteFile [
 
-	filesList selectedItem delete.
-	self updateFilesList
+	| directory |
+	directory := directoriesTree selectedItem.
+	directory deleteFile: filesList selectedItem.
+	directoriesTree selectItem: directory
 ]
 
-{ #category : 'action - sections' }
+{ #category : 'actions - sections' }
 RetumiloPresenter >> deleteSection [
 	
 	| section |
 	section := sectionsList selectedItem.
-	self model deleteSection: section.
-	self updateSectionsList
+	filesList selectedItem deleteSection: section.
+	sectionsList refresh.
+	sectionsList unselectAll
 ]
 
 { #category : 'accessing' }
@@ -295,7 +304,7 @@ RetumiloPresenter >> directoriesTree: anObject [
 	directoriesTree := anObject
 ]
 
-{ #category : 'action - edition' }
+{ #category : 'actions - edition' }
 RetumiloPresenter >> doSection [
 
 	| currentCategory name |
@@ -306,11 +315,11 @@ RetumiloPresenter >> doSection [
 	Clipboard clipboardText:
 		(filesList selectedItem sectionLine: name) , String lf.
 	text withAdapterDo: [ :anAdapter | anAdapter pasteText ].
-
+	sectionAdded := true.
 	inEdition := true
 ]
 
-{ #category : 'action - files' }
+{ #category : 'actions - files' }
 RetumiloPresenter >> editFile [
 ]
 
@@ -382,14 +391,11 @@ RetumiloPresenter >> filesListMenu [
 			  item
 				  name: 'Compute eLoc';
 				  action: [ self computeElocFile ] ];
+		  addItem: [ :item |
+			  item
+				  name: 'Inspect';
+				  action: [ self inspectFile ] ];
 		  yourself
-]
-
-{ #category : 'action - files' }
-RetumiloPresenter >> filterFilesList [
-	self updateFilesList
-
-	
 ]
 
 { #category : 'accessing' }
@@ -400,17 +406,27 @@ RetumiloPresenter >> inEdition [
 
 { #category : 'initialization' }
 RetumiloPresenter >> initializeListPresenters [
+
 	directoriesTree := SpTreePresenter new
-		                   roots: { application rootDir };
-		                   children: [ :dir |
-			                   dir directories ];
-		                   displayIcon: [ :dir |
-			                   self iconNamed: dir systemIconName ];
+		                   roots: { self model };
+		                   children: [ :dir | dir directories ];
+		                   displayIcon: [ :dir | self iconNamed: dir icon ];
 		                   display: [ :dir | dir name ];
-		                   expandPath: #( 1 1 3 ).
-	filesList := SpListPresenter new display: [ :item | item name ].
-	categoriesList := self newList.
-	sectionsList := self newList.
+		                   expandPath: #( 1 1 3 );
+		                   contextMenu: [ self treeMenu ].
+	filesList := SpFilteringListPresenter new itemFilter: [ :item :string |
+		             string match: item ].
+	filesList listPresenter
+		display: [ :item | item name ];
+		sortingBlock: [ :a :b | a name < b name ];
+		displayIcon: [ :item | self iconNamed: item icon ];
+		contextMenu: [ self filesListMenu ].
+	categoriesList := SpListPresenter new
+		                  displayIcon: [ :item | self iconNamed: item icon ];
+		                  contextMenu: [ self categoriesListMenu ].
+	sectionsList := SpListPresenter new
+		                displayIcon: [ :item | self iconNamed: item icon ];
+		                contextMenu: [ self sectionsListMenu ]
 ]
 
 { #category : 'initialization' }
@@ -439,14 +455,12 @@ RetumiloPresenter >> initializeMenuBar [
 RetumiloPresenter >> initializePresenters [
 
 	inEdition := false.
+	sectionAdded := false.
 	self initializeListPresenters.
-	patternField := self newTextInput.
-	patternField placeholder: 'Filter...';
-		whenTextChangedDo: [ self filterFilesList ].
 	searchField := self newTextInput.
 	searchField placeholder: 'Search...';
-		whenTextChangedDo: [ self searchInFiles ].
-	text := self instantiate: SpTextPresenter.
+		whenTextChangedDo: [ self searchIn: self model ].
+	text := self newText.
 	text beEditable.
 	text whenSubmitDo: [ :txt | self acceptEdition: txt ].
 	text whenTextChangedDo: [ inEdition := true ].
@@ -491,31 +505,38 @@ RetumiloPresenter >> initializeWindow: aWindowPresenter [
 	menuBar addKeybindingsTo: aWindowPresenter
 ]
 
-{ #category : 'action - categories' }
+{ #category : 'actions - files' }
+RetumiloPresenter >> inspectFile [
+
+	filesList selectedItem inspect.
+
+]
+
+{ #category : 'actions - categories' }
 RetumiloPresenter >> moveCategoryDown [
 
-	self model moveCategoryDown: categoriesList selectedItem.
-	self updateCategoriesList. 
-
+	filesList selectedItem moveCategoryDown: categoriesList selectedItem.
+	categoriesList refresh
 ]
 
-{ #category : 'action - categories' }
+{ #category : 'actions - categories' }
 RetumiloPresenter >> moveCategoryUp [
 
-	self model moveCategoryUp: categoriesList selectedItem.
-	self updateCategoriesList. 
-
+	filesList selectedItem moveCategoryUp: categoriesList selectedItem.
+	categoriesList refresh
 ]
 
-{ #category : 'action - sections' }
+{ #category : 'actions - sections' }
 RetumiloPresenter >> moveSectionDown [
 
-	self model moveSectionDown: sectionsList selectedItem.
-	self updateSectionsList. 
+	| section |
+	section := sectionsList selectedItem.
+	filesList selectedItem moveSectionDown: section.
+	sectionsList selectItem: section.
 
 ]
 
-{ #category : 'action - sections' }
+{ #category : 'actions - sections' }
 RetumiloPresenter >> moveSectionTo [
 
 	| categoryName section |
@@ -526,19 +547,19 @@ RetumiloPresenter >> moveSectionTo [
 	categoryName ifNil: [ ^ self ].
 	section := sectionsList selectedItem.
 	sectionsList unselectAll.
-	self model
+	filesList selectedItem
 		moveSection: section
 		toCategoryNamed: categoryName.
-	self updateCategoriesList
+	categoriesList refresh
 ]
 
-{ #category : 'action - sections' }
+{ #category : 'actions - sections' }
 RetumiloPresenter >> moveSectionUp [
 
-	self model moveSectionUp: sectionsList selectedItem.
-	self updateSectionsList. 
-
-	
+	| section |
+	section := sectionsList selectedItem.
+	filesList selectedItem moveSectionUp: section.
+	sectionsList selectItem: section
 ]
 
 { #category : 'menus' }
@@ -556,24 +577,42 @@ RetumiloPresenter >> operationMenu [
 		  yourself
 ]
 
-{ #category : 'action - files' }
+{ #category : 'actions - files' }
 RetumiloPresenter >> protectFile [
 
 	filesList selectedItem protect
 ]
 
-{ #category : 'action - categories' }
-RetumiloPresenter >> renameCategory [
-	| categoryName |
-	categoryName := (TextEntryDialogWindow new
-		 title: 'Renaming a category';
-		 text: 'category name ?';
-		 entryText: categoriesList selectedItem name) openModal entryText.
-	self model renameCategory: categoriesList selectedItem name: categoryName.
-	self updateCategoriesList
+{ #category : 'actions - directories' }
+RetumiloPresenter >> refreshDirectory [
+
+	| directory |
+	directory := directoriesTree selectedItem.
+	directory ifNil: [ directory := self model ].
+	directory load.
+	directoriesTree refresh.
+	directoriesTree selectItem: directory.
+	filesList listPresenter refresh.
+	categoriesList refresh.
+	sectionsList refresh
 ]
 
-{ #category : 'action - files' }
+{ #category : 'actions - categories' }
+RetumiloPresenter >> renameCategory [
+
+	| categoryName |
+	categoryName := (TextEntryDialogWindow new
+		                 title: 'Renaming a category';
+		                 text: 'category name ?';
+		                 entryText: categoriesList selectedItem name)
+		                openModal entryText.
+	filesList selectedItem
+		renameCategory: categoriesList selectedItem
+		name: categoryName.
+	categoriesList refresh
+]
+
+{ #category : 'actions - files' }
 RetumiloPresenter >> renameFile [
 
 	| fileName currentFileName |
@@ -583,11 +622,18 @@ RetumiloPresenter >> renameFile [
 		             text: 'file name ?';
 		             entryText: currentFileName) openModal entryText.
 	currentFileName renameTo: fileName.
-	self updateFilesList
+	filesList refresh
 ]
 
-{ #category : 'action - files' }
-RetumiloPresenter >> searchInFiles [
+{ #category : 'actions - global' }
+RetumiloPresenter >> searchIn: anObject [
+
+	anObject tagIfFound: searchField text.
+	directoriesTree refresh.
+	filesList listPresenter refresh.
+	categoriesList refresh.
+	sectionsList refresh.
+	
 ]
 
 { #category : 'accessing' }
@@ -633,11 +679,19 @@ RetumiloPresenter >> sectionsListMenu [
 		  yourself
 ]
 
-{ #category : 'action - menu bar' }
+{ #category : 'actions - sections' }
+RetumiloPresenter >> selectFieldInSection: aSection [
+
+	| index |
+	index := aSection contents findString: searchField text startingAt: 1.
+	text selectionInterval: (index to: index + searchField text size -1)
+]
+
+{ #category : 'actions - menu bar' }
 RetumiloPresenter >> setupLanguage [
 ]
 
-{ #category : 'action - edition' }
+{ #category : 'actions - edition' }
 RetumiloPresenter >> skipTo [
 
 	| numLine entryText resultAssociation |
@@ -645,10 +699,10 @@ RetumiloPresenter >> skipTo [
 		              title: 'Skip to';
 		              text: 'num line ?';
 		              entryText: '') openModal entryText.
-	entryText ifNil: [ ^ self ].
+	(entryText isNil or: [ entryText isEmpty ]) ifTrue: [ ^ self ].
 	numLine := entryText asNumber.
 	resultAssociation := filesList selectedItem positionOfLine: numLine.
-	resultAssociation ifNil: [
+	resultAssociation key ifNil: [
 		text unselectAll.
 		^ self ].
 	categoriesList selectItem: resultAssociation key category.
@@ -656,8 +710,10 @@ RetumiloPresenter >> skipTo [
 
 	text cursorPositionIndex: resultAssociation value value.
 	text selectLine.
-	text scrollValue:
-		0 @ (resultAssociation value key / resultAssociation key numberOfLines) asFloat
+	text scrollValue: 0
+		@
+			(resultAssociation value key / resultAssociation key numberOfLines)
+				asFloat
 ]
 
 { #category : 'accessing' }
@@ -682,74 +738,22 @@ RetumiloPresenter >> textMenu [
 
 { #category : 'menus' }
 RetumiloPresenter >> treeMenu [
-		^ self newMenu
-		  addItem: [ :item | item name: 'Duplicate' ];
+
+	^ self newMenu
+		  addItem: [ :item |
+			  item
+				  name: 'Refresh';
+				  action: [ self refreshDirectory ] ];
+		  addItem: [ :item |
+			  item
+				  name: 'Duplicate';
+				  action: [ self duplicateBrowser ] ];
 		  addItem: [ :item | item name: 'Compute eLoc' ];
 		  yourself
 ]
 
-{ #category : 'action - files' }
+{ #category : 'actions - files' }
 RetumiloPresenter >> unprotectFile [
 
 	filesList selectedItem unprotect
-]
-
-{ #category : 'updating' }
-RetumiloPresenter >> updateCategoriesList [
-
-	| categories currentCategory |
-	filesList selectedItem ifNil: [
-		categoriesList items: #(  ).
-		^ self ].
-
-	filesList selectedItem isOPTFile
-		ifFalse: [ " when file is not opt formated, display the contents as sole section"
-			statusBar pushMessage: filesList selectedItem numberOfLinesOfCode asString.
-			categoriesList items: #(  ).
-			sectionsList items: #(  ).
-			text text:
-				filesList selectedItem categories first sections first
-					contents.
-			inEdition := false ]
-		ifTrue: [ " normal case for opt formated files"
-			currentCategory := categoriesList selectedItem.
-			self model: filesList selectedItem.
-			categories := filesList selectedItem categories.
-			categoriesList items: categories.
-			currentCategory ifNotNil: [
-				categoriesList selectItem: currentCategory ] ]
-]
-
-{ #category : 'updating' }
-RetumiloPresenter >> updateFilesList [
-
-	| selection pattern |
-	pattern := patternField text.
-	(pattern isNil or: [ pattern isEmpty ]) ifTrue: [ pattern := '*' ].
-	selection := directoriesTree selectedItem.
-	selection ifNil: [
-		filesList items: #(  ).
-		^ self ].
-	filesList items:
-		(selection files select: [ :file | pattern match: file name ])
-]
-
-{ #category : 'updating' }
-RetumiloPresenter >> updateSectionsList [
-
-	| currentCategory currentSection |
-	self model ifNil: [
-		sectionsList items: #(  ).
-		^ self ].
-
-	currentCategory := categoriesList selectedItem.
-	currentCategory ifNil: [
-		sectionsList items: #(  ).
-		^ self ].
-
-	currentSection := sectionsList selectedItem.
-	sectionsList items: currentCategory sections.
-	(currentSection notNil and: [
-		 categoriesList selectedItem == currentSection category ]) ifTrue: [
-		sectionsList selectItem: currentSection ]
 ]

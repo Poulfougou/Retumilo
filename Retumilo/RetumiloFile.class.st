@@ -38,8 +38,18 @@ RetumiloFile class >> magicSequence [
 
 { #category : 'accessing' }
 RetumiloFile class >> separatorsForSuffix: aString [
-	aString crTrace.
 	^ types at: aString asSymbol ifAbsent: [ #('/*' 'check suffix */')  ]
+]
+
+{ #category : 'editing - sections' }
+RetumiloFile >> acceptEdition: aString for: aSection sectionAdded: aBool [
+
+	self isOPTFile
+		ifTrue: [ aSection ifNotNil: [ aSection contents: aString ] ]
+		ifFalse: [ " case of unformated file text"
+			categories first sections first contents: aString ].
+	self save.
+	aBool ifTrue: [ self load ]
 ]
 
 { #category : 'editing - categories' }
@@ -64,11 +74,10 @@ RetumiloFile >> backupFileLocator [
 { #category : 'accessing' }
 RetumiloFile >> categories [
 
-	categories ifNil: [ categories := OrderedCollection new ].
 	^ categories
 ]
 
-{ #category : 'loading  and saving' }
+{ #category : 'loading and saving' }
 RetumiloFile >> createSingletonSectionWith: str [
 
 	| category |
@@ -93,11 +102,19 @@ RetumiloFile >> deleteCategory: aCategory [
 { #category : 'editing - sections' }
 RetumiloFile >> deleteSection: aSection [
 
-	aSection category deleteSection: aSection.
+	aSection category removeSection: aSection.
 	self save.
 ]
 
-{ #category : 'loading  and saving' }
+{ #category : 'accessing' }
+RetumiloFile >> icon [
+
+	^ tag
+		  ifTrue: [ super icon ]
+		  ifFalse: [ #page ]
+]
+
+{ #category : 'loading and saving' }
 RetumiloFile >> initializeLoadingOn: readStream [
 
 	| str |
@@ -147,7 +164,7 @@ RetumiloFile >> load [
 	readStream close
 ]
 
-{ #category : 'loading  and saving' }
+{ #category : 'loading and saving' }
 RetumiloFile >> makeBackup [
 
 	| fileRef path |
@@ -249,7 +266,7 @@ RetumiloFile >> renameTo: aString [
 	fileLocator renameTo: aString
 ]
 
-{ #category : 'loading  and saving' }
+{ #category : 'loading and saving' }
 RetumiloFile >> save [
 
 	| writeStream |
@@ -288,8 +305,11 @@ RetumiloFile >> suffix [
 
 { #category : 'searching' }
 RetumiloFile >> tagIfFound: aString [
+
 	tag := false.
-	categories do: [ :cat | (cat tagIfFound: aString) ifTrue: [tag := true]]
+	categories do: [ :cat |
+		(cat tagIfFound: aString) ifTrue: [ tag := true ] ].
+	^ tag
 ]
 
 { #category : 'file management' }

@@ -14,14 +14,29 @@ Class {
 	#package : 'Retumilo'
 }
 
-{ #category : 'adding item' }
+{ #category : 'actions - sections' }
+RetumiloCategory >> addNewSectionBefore: aSection [
+
+	| section |
+	section := RetumiloSection new
+		           category: self
+		           contents: 'new section'
+		           startPosition: -1
+		           stopPosition: -1.
+	aSection
+		ifNil: [ sections addLast: section ]
+		ifNotNil: [ sections add: section before: aSection ].
+	^ section
+]
+
+{ #category : 'actions - sections' }
 RetumiloCategory >> addSection: aSection [
 
 	sections addLast: aSection.
 	aSection category: self
 ]
 
-{ #category : 'adding item' }
+{ #category : 'loading and saving' }
 RetumiloCategory >> addSection: str startPosition: startPosition stopPosition: stopPosition [
 
 	| section |
@@ -33,31 +48,25 @@ RetumiloCategory >> addSection: str startPosition: startPosition stopPosition: s
 	sections add: section
 ]
 
-{ #category : 'adding item' }
-RetumiloCategory >> addSectionBefore: aSection [
-
-	| section |
-	section := RetumiloSection new category: self contents: 'new section' startPosition: -1 stopPosition: -1.
-	aSection
-		ifNil: [ sections addLast: section ]
-		ifNotNil: [ sections add: section before: aSection ]
-]
-
 { #category : 'accessing' }
 RetumiloCategory >> contentsSize [
 	 
 	^sections sum: [ :sct | sct contents size + 1]
 ]
 
-{ #category : 'actions - sections' }
-RetumiloCategory >> deleteSection: aSection [
+{ #category : 'accessing' }
+RetumiloCategory >> icon [
 
-	sections remove: aSection.
+	^ tag
+		  ifTrue: [ #smallDoIt ]
+		  ifFalse: [ #empty ]
 ]
 
 { #category : 'initialization' }
 RetumiloCategory >> initialize [
-	sections := OrderedCollection new.
+
+	tag := false.
+	sections := OrderedCollection new
 ]
 
 { #category : 'loading and saving' }
@@ -149,10 +158,10 @@ RetumiloCategory >> positionOfLine: anInteger [
 
 { #category : 'printing' }
 RetumiloCategory >> printOn: aStream [
-	aStream nextPutAll: self name
+	aStream nextPutAll: self name asString
 ]
 
-{ #category : 'adding item' }
+{ #category : 'actions - sections' }
 RetumiloCategory >> removeSection: aSection [
 
 	sections remove: aSection.

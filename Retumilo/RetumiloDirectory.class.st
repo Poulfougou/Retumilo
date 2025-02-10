@@ -12,6 +12,26 @@ Class {
 	#package : 'Retumilo'
 }
 
+{ #category : 'edition' }
+RetumiloDirectory >> createFileNamed: fileName [
+
+	| file flc |
+	flc := fileLocator / fileName.
+	flc writeStream close.
+	file := RetumiloFile new.
+	file fileLocator: flc.
+	file load.
+	files add: file.
+	^ file
+]
+
+{ #category : 'edition' }
+RetumiloDirectory >> deleteFile: aFile [
+	aFile delete.
+	files remove: aFile.
+	
+]
+
 { #category : 'accessing' }
 RetumiloDirectory >> directories [
 
@@ -36,6 +56,14 @@ RetumiloDirectory >> files: anObject [
 	files := anObject
 ]
 
+{ #category : 'accessing' }
+RetumiloDirectory >> icon [
+
+	^ tag
+		  ifTrue: [ super icon ]
+		  ifFalse: [ #open ]
+]
+
 { #category : 'loading and saving' }
 RetumiloDirectory >> load [
 
@@ -44,20 +72,32 @@ RetumiloDirectory >> load [
 		                chld isDirectory ].
 	directoriesLocators := fileLocator children select: [ :chld |
 		                       chld isDirectory ].
-	files := fileLocators collect: [ :flc |
+	files := fileLocators asOrderedCollection collect: [ :flc |
 		         | opt |
 		         opt := RetumiloFile new.
 		         opt fileLocator: flc.
 		         opt load.
 		         opt ].
-	files := files sort: [ :a :b | a name < b name ].
-	directories := directoriesLocators collect: [ :flc |
+	directories := directoriesLocators asOrderedCollection collect: [
+		               :flc |
 		               | opt |
 		               opt := self class new.
 		               opt fileLocator: flc.
 		               opt load.
-		               opt ].
-	directories := directories sort: [ :a :b | a name < b name ]
+		               opt ]
+]
+
+{ #category : 'metrics' }
+RetumiloDirectory >> numberOfLinesOfCode [
+
+	| numberOfLinesOfCode |
+	numberOfLinesOfCode := 0.
+	self directories do: [ :dir |
+		numberOfLinesOfCode := numberOfLinesOfCode + dir numberOfLinesOfCode ].
+	self files do: [ :file |
+		numberOfLinesOfCode := numberOfLinesOfCode
+		                       + file numberOfLinesOfCode ].
+	^ numberOfLinesOfCode
 ]
 
 { #category : 'searching' }

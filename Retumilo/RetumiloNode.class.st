@@ -24,6 +24,18 @@ RetumiloNode >> fileLocator: aFilelocator [
 	fileLocator := aFilelocator
 ]
 
+{ #category : 'accessing' }
+RetumiloNode >> icon [
+
+	^ #smallDoIt
+]
+
+{ #category : 'initialization' }
+RetumiloNode >> initialize [
+
+	tag := false
+]
+
 { #category : 'loading and saving' }
 RetumiloNode >> load [
 	self subclassResponsibility 
