@@ -77,16 +77,6 @@ RetumiloSection >> name [
 	^ contents readStream  upTo: Character lf
 ]
 
-{ #category : 'accessing' }
-RetumiloSection >> numberOfLines [
-
-	| countLf |
-	countLf := 1.
-	contents do: [ :c |
-		c == Character lf ifTrue: [ countLf := countLf + 1 ] ].
-	^ countLf
-]
-
 { #category : 'metrics' }
 RetumiloSection >> numberOfLinesOfCode [
 

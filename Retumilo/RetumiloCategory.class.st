@@ -113,20 +113,10 @@ RetumiloCategory >> name: anObject [
 	name := anObject
 ]
 
-{ #category : 'accessing' }
-RetumiloCategory >> numberOfLines [
-	 
-	^sections sum: [ :sct | sct numberOfLines + 1]
-]
-
 { #category : 'metrics' }
 RetumiloCategory >> numberOfLinesOfCode [
-
-	| numberOfLinesOfCode |
-	numberOfLinesOfCode := 0.
-	sections do: [ :cat |
-		numberOfLinesOfCode := numberOfLinesOfCode + cat numberOfLinesOfCode ].
-	^ numberOfLinesOfCode
+	 
+	^sections sum: [ :sct | sct numberOfLinesOfCode + 1]
 ]
 
 { #category : 'accessing' }
@@ -141,7 +131,7 @@ RetumiloCategory >> optFile: anObject [
 	optFile := anObject
 ]
 
-{ #category : 'accessing' }
+{ #category : 'searching' }
 RetumiloCategory >> positionOfLine: anInteger [
 
 	| numLines section resultAssociation |
@@ -150,7 +140,7 @@ RetumiloCategory >> positionOfLine: anInteger [
 	section := sections
 		            detect: [ :sct |
 			            resultAssociation := sct positionOfLine: numLines - 1.
-			            numLines := numLines - sct numberOfLines.
+			            numLines := numLines - sct numberOfLinesOfCode - 1.
 			            resultAssociation key notNil ]
 		            ifNone: [ ^ nil -> (anInteger -> -1) ].
 	^ resultAssociation

@@ -65,10 +65,48 @@ RetumiloFile >> addCategoryName: aString before: anOther [
 	^ category
 ]
 
+{ #category : 'file management' }
+RetumiloFile >> applyRecipes [
+
+	| readStream str writeStream |
+	fileLocator exists ifFalse: [ ^ self ].
+	readStream := fileLocator readStream.
+	str := readStream upToEnd.
+	readStream close.
+	self makeBackup.
+	str := self applyRecipesOn: str.
+	writeStream := fileLocator writeStream.
+	writeStream nextPutAll: str.
+	writeStream close.
+	self load
+]
+
+{ #category : 'file management' }
+RetumiloFile >> applyRecipesOn: aString [
+	| str1 str2 newString |
+	str1 := String lf, 'c'.
+	str2 := String lf, '!'.
+	newString := aString copyReplaceAll: str1 with: str2.
+	str1 := String lf, 'C'.
+	str2 := String lf, '!'.
+	newString := newString copyReplaceAll: str1 with: str2.
+	str1 := String lf, 'MPI_master_olny'.
+	str2 := String lf, ''.
+	newString := newString copyReplaceAll: str1 with: str2.
+	str1 := String lf, '     &'.
+	str2 := ' &', String lf, '     &'.
+	newString := newString copyReplaceAll: str1 with: str2.
+	str1 := 'buf'.
+	str2 := 'buof'.
+	newString := newString copyReplaceAll: str1 with: str2.
+	newString crTrace.
+	^newString
+]
+
 { #category : 'accessing' }
 RetumiloFile >> backupFileLocator [
 
-	^ (fileLocator fullPath , '~') asFileLocatorOrReference
+	^ (fileLocator fullName , '~') asFileLocatorOrReference
 ]
 
 { #category : 'accessing' }
@@ -143,6 +181,7 @@ RetumiloFile >> load [
 
 	| readStream str startPosition separator currentCategory categoryName |
 	fileLocator exists ifFalse: [ ^ self ].
+	categories := OrderedCollection new.
 	readStream := fileLocator readStream.
 	startPosition := 0.
 	(str := self initializeLoadingOn: readStream) ifNil: [ ^ self ].
@@ -167,12 +206,10 @@ RetumiloFile >> load [
 { #category : 'loading and saving' }
 RetumiloFile >> makeBackup [
 
-	| fileRef path |
+	| fileRef |
 	fileRef := self backupFileLocator.
-	path := fileLocator fullPath.
 	fileRef asFileReference deleteIfAbsent: [  ].
-	fileLocator asFileReference moveTo: fileRef.
-	fileLocator := path asFileLocatorOrReference.
+	fileLocator asFileReference copyTo: fileRef
 ]
 
 { #category : 'editing - categories' }
@@ -196,15 +233,10 @@ RetumiloFile >> moveCategoryUp: aCategory [
 ]
 
 { #category : 'editing - sections' }
-RetumiloFile >> moveSection: aSection toCategoryNamed: aCategoryName [
+RetumiloFile >> moveSection: aSection toCategory: aCategory [
 
-	| category |
-	category := self categories
-		            detect: [ :cat | cat name = aCategoryName ]
-		            ifNone: [
-		            self addCategoryName: aCategoryName before: nil ].
 	aSection category removeSection: aSection.
-	category addSection: aSection
+	aCategory addSection: aSection
 ]
 
 { #category : 'editing - sections' }
@@ -231,7 +263,7 @@ RetumiloFile >> numberOfLinesOfCode [
 	^ numberOfLinesOfCode
 ]
 
-{ #category : 'file management' }
+{ #category : 'searching' }
 RetumiloFile >> positionOfLine: anInteger [
 
 	| numLines category resultAssociation |
@@ -240,7 +272,7 @@ RetumiloFile >> positionOfLine: anInteger [
 	category := self categories
 		            detect: [ :cat |
 			            resultAssociation := cat positionOfLine: numLines.
-			            numLines := numLines - cat numberOfLines.
+			            numLines := numLines - cat numberOfLinesOfCode.
 			            resultAssociation key notNil ]
 		            ifNone: [ ^ nil -> (anInteger -> -1) ].
 	^ resultAssociation

@@ -29,3 +29,15 @@ RetumiloApp >> start [
 	presenter := RetumiloPresenter newApplication: self model: rootDir.
 	presenter open
 ]
+
+{ #category : 'running' }
+RetumiloApp >> styleSheet [
+
+	| customStyleSheet |
+	customStyleSheet := SpStyleVariableSTONReader fromString:
+		                   '.application [
+.text [ Font {  #name: "Source Code Pro", #size: 10 } ]
+]'.
+
+	^ super styleSheet , customStyleSheet
+]

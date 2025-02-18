@@ -83,6 +83,12 @@ RetumiloPresenter >> addSection [
 	sectionsList selectItem: section
 ]
 
+{ #category : 'actions - files' }
+RetumiloPresenter >> applyRecipes [
+	filesList selectedItem applyRecipes.
+	filesList selectItem: filesList selectedItem 
+]
+
 { #category : 'actions - edition' }
 RetumiloPresenter >> cancelEdition [
 
@@ -250,7 +256,7 @@ RetumiloPresenter >> defaultLayout [
 		  yourself
 ]
 
-{ #category : 'action - menu bar' }
+{ #category : 'actions - menu bar' }
 RetumiloPresenter >> defineRootDir [
 
 	| dialog rootDir |
@@ -260,9 +266,9 @@ RetumiloPresenter >> defineRootDir [
 
 	rootDir := dialog openModal answer.
 	rootDir ifNil: [ ^ self ].
-	application rootDir: rootDir.
+	self model: rootDir.
+	directoriesTree roots: { self model }.
 	statusBar pushMessage: 'Files loaded.'.
-	directoriesTree roots: { application rootDir }
 ]
 
 { #category : 'actions - categories' }
@@ -317,6 +323,13 @@ RetumiloPresenter >> doSection [
 	text withAdapterDo: [ :anAdapter | anAdapter pasteText ].
 	sectionAdded := true.
 	inEdition := true
+]
+
+{ #category : 'actions - global' }
+RetumiloPresenter >> duplicateBrowser [
+
+	(self class newApplication: application model: self model)
+		open
 ]
 
 { #category : 'actions - files' }
@@ -389,8 +402,8 @@ RetumiloPresenter >> filesListMenu [
 				  action: [ self editFile ] ];
 		  addItem: [ :item |
 			  item
-				  name: 'Compute eLoc';
-				  action: [ self computeElocFile ] ];
+				  name: 'Apply recipes';
+				  action: [ self applyRecipes ] ];
 		  addItem: [ :item |
 			  item
 				  name: 'Inspect';
@@ -405,7 +418,24 @@ RetumiloPresenter >> inEdition [
 ]
 
 { #category : 'initialization' }
-RetumiloPresenter >> initializeListPresenters [
+RetumiloPresenter >> initializeCategoriesListPresenter [
+
+	categoriesList := SpListPresenter new
+		                  dropEnabled: true;
+		                  wantsDrop: [ :transfer | transfer index > 0 ];
+		                  acceptDrop: [ :transfer |
+			                  filesList selectedItem
+				                  moveSection: transfer passenger first
+				                  toCategory:
+					                  (categoriesList items at: transfer index).
+			                  categoriesList selectItem:
+					                  categoriesList selectedItem ];
+		                  displayIcon: [ :item | self iconNamed: item icon ];
+		                  contextMenu: [ self categoriesListMenu ]
+]
+
+{ #category : 'initialization' }
+RetumiloPresenter >> initializeDirTreePresenter [
 
 	directoriesTree := SpTreePresenter new
 		                   roots: { self model };
@@ -413,20 +443,19 @@ RetumiloPresenter >> initializeListPresenters [
 		                   displayIcon: [ :dir | self iconNamed: dir icon ];
 		                   display: [ :dir | dir name ];
 		                   expandPath: #( 1 1 3 );
-		                   contextMenu: [ self treeMenu ].
+		                   contextMenu: [ self treeMenu ]
+]
+
+{ #category : 'initialization' }
+RetumiloPresenter >> initializeFilesListPresenter [
+
 	filesList := SpFilteringListPresenter new itemFilter: [ :item :string |
 		             string match: item ].
 	filesList listPresenter
 		display: [ :item | item name ];
 		sortingBlock: [ :a :b | a name < b name ];
 		displayIcon: [ :item | self iconNamed: item icon ];
-		contextMenu: [ self filesListMenu ].
-	categoriesList := SpListPresenter new
-		                  displayIcon: [ :item | self iconNamed: item icon ];
-		                  contextMenu: [ self categoriesListMenu ].
-	sectionsList := SpListPresenter new
-		                displayIcon: [ :item | self iconNamed: item icon ];
-		                contextMenu: [ self sectionsListMenu ]
+		contextMenu: [ self filesListMenu ]
 ]
 
 { #category : 'initialization' }
@@ -452,23 +481,43 @@ RetumiloPresenter >> initializeMenuBar [
 ]
 
 { #category : 'initialization' }
+RetumiloPresenter >> initializeOtherPresenters [
+
+	searchField := self newTextInput.
+	searchField
+		placeholder: 'Search...';
+		whenTextChangedDo: [ self searchIn: self model ].
+	text := self newText.
+	text beEditable.
+	text addStyle: '.text'.
+	text whenSubmitDo: [ :txt | self acceptEdition: txt ].
+	text whenTextChangedDo: [ inEdition := true ].
+	text contextMenu: [ self textMenu ].
+]
+
+{ #category : 'initialization' }
 RetumiloPresenter >> initializePresenters [
 
 	inEdition := false.
 	sectionAdded := false.
-	self initializeListPresenters.
-	searchField := self newTextInput.
-	searchField placeholder: 'Search...';
-		whenTextChangedDo: [ self searchIn: self model ].
-	text := self newText.
-	text beEditable.
-	text whenSubmitDo: [ :txt | self acceptEdition: txt ].
-	text whenTextChangedDo: [ inEdition := true ].
-	text contextMenu: [ self textMenu ].
+	self initializeDirTreePresenter.
+	self initializeFilesListPresenter.
+	self initializeCategoriesListPresenter.
+	self initializeSectionsListPresenter.
+	self initializeOtherPresenters.
 
 	self initializeMenuBar.
 	self initializeToolBar.
 	statusBar := self newStatusBar
+]
+
+{ #category : 'initialization' }
+RetumiloPresenter >> initializeSectionsListPresenter [
+
+	sectionsList := SpListPresenter new
+		                dragEnabled: true;
+		                displayIcon: [ :item | self iconNamed: item icon ];
+		                contextMenu: [ self sectionsListMenu ]
 ]
 
 { #category : 'initialization' }
@@ -539,17 +588,21 @@ RetumiloPresenter >> moveSectionDown [
 { #category : 'actions - sections' }
 RetumiloPresenter >> moveSectionTo [
 
-	| categoryName section |
+	| categoryName category section file |
 	categoryName := (TextEntryDialogWindow new
 		                 title: 'Move section to category';
 		                 text: 'category name ?';
 		                 entryText: '') openModal entryText.
 	categoryName ifNil: [ ^ self ].
 	section := sectionsList selectedItem.
+	file := filesList selectedItem.
 	sectionsList unselectAll.
-	filesList selectedItem
-		moveSection: section
-		toCategoryNamed: categoryName.
+	category := file categories
+		            detect: [ :cat | cat name = categoryName ]
+		            ifNone: [
+		            file addCategoryName: categoryName before: nil ].
+
+	file moveSection: section toCategory: category.
 	categoriesList refresh
 ]
 
@@ -691,28 +744,30 @@ RetumiloPresenter >> selectFieldInSection: aSection [
 RetumiloPresenter >> setupLanguage [
 ]
 
-{ #category : 'actions - edition' }
+{ #category : 'actions - global' }
 RetumiloPresenter >> skipTo [
 
-	| numLine entryText resultAssociation |
+	| numLine entryText resultAssociation file |
 	entryText := (TextEntryDialogWindow new
 		              title: 'Skip to';
 		              text: 'num line ?';
 		              entryText: '') openModal entryText.
 	(entryText isNil or: [ entryText isEmpty ]) ifTrue: [ ^ self ].
 	numLine := entryText asNumber.
-	resultAssociation := filesList selectedItem positionOfLine: numLine.
+	file := filesList selectedItem.
+	resultAssociation := file positionOfLine: numLine.
 	resultAssociation key ifNil: [
 		text unselectAll.
 		^ self ].
-	categoriesList selectItem: resultAssociation key category.
-	sectionsList selectItem: resultAssociation key.
+	file isOPTFile ifTrue: [
+		categoriesList selectItem: resultAssociation key category.
+		sectionsList selectItem: resultAssociation key ].
 
 	text cursorPositionIndex: resultAssociation value value.
 	text selectLine.
 	text scrollValue: 0
 		@
-			(resultAssociation value key / resultAssociation key numberOfLines)
+			(resultAssociation value key / resultAssociation key numberOfLinesOfCode)
 				asFloat
 ]
 
