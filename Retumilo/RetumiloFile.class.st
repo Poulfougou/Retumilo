@@ -120,7 +120,7 @@ RetumiloFile >> createSingletonSectionWith: str [
 
 	| category |
 	category := RetumiloCategory new optFile: self.
-	category addSection: str startPosition: 0 stopPosition: -1.
+	category addSectionWith: str.
 	self categories add: category
 ]
 
@@ -236,7 +236,8 @@ RetumiloFile >> moveCategoryUp: aCategory [
 RetumiloFile >> moveSection: aSection toCategory: aCategory [
 
 	aSection category removeSection: aSection.
-	aCategory addSection: aSection
+	aCategory addSection: aSection.
+	self save.
 ]
 
 { #category : 'editing - sections' }
@@ -304,6 +305,7 @@ RetumiloFile >> save [
 	| writeStream |
 	fileLocator exists ifTrue: [ self makeBackup ].
 	writeStream := fileLocator writeStream.
+	writeStream truncate.
 	self isOPTFile
 		ifFalse: [
 		writeStream nextPutAll: self categories first sections first contents ]

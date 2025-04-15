@@ -46,10 +46,8 @@ RetumiloPresenter >> acceptEdition: aText [
 	file := filesList selectedItem.
 	acceptedText := aText withUnixLineEndings.
 	acceptedText isEmpty ifTrue: [ ^ self ].
-	acceptedText last == Character lf ifFalse: [
-		acceptedText := acceptedText , (String with: Character lf) ].
 	file
-		acceptEdition: acceptedText
+		acceptEdition: acceptedText withoutTrailingNewlines
 		for: sectionsList selectedItem
 		sectionAdded: sectionAdded.
 	sectionAdded ifTrue: [filesList selectItem: file].

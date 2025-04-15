@@ -20,9 +20,7 @@ RetumiloCategory >> addNewSectionBefore: aSection [
 	| section |
 	section := RetumiloSection new
 		           category: self
-		           contents: 'new section'
-		           startPosition: -1
-		           stopPosition: -1.
+		           contents: 'new section'.
 	aSection
 		ifNil: [ sections addLast: section ]
 		ifNotNil: [ sections add: section before: aSection ].
@@ -32,19 +30,15 @@ RetumiloCategory >> addNewSectionBefore: aSection [
 { #category : 'actions - sections' }
 RetumiloCategory >> addSection: aSection [
 
-	sections addLast: aSection.
+	sections add: aSection.
 	aSection category: self
 ]
 
 { #category : 'loading and saving' }
-RetumiloCategory >> addSection: str startPosition: startPosition stopPosition: stopPosition [
+RetumiloCategory >> addSectionWith: str [
 
 	| section |
-	section := RetumiloSection new
-		           category: self
-		           contents: str
-		           startPosition: startPosition
-		           stopPosition: stopPosition.
+	section := RetumiloSection new category: self contents: str.
 	sections add: section
 ]
 
@@ -76,9 +70,8 @@ RetumiloCategory >> loadSectionOn: aReadStream separator: aSeparator startPositi
 	aReadStream upTo: Character lf.
 	str := aReadStream upToAll: aSeparator , optFile class magicSequence.
 	self
-		addSection: str
-		startPosition: anIndex
-		stopPosition: aReadStream position
+		addSectionWith: str withoutTrailingNewlines
+
 ]
 
 { #category : 'actions - sections' }

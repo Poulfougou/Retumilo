@@ -7,8 +7,6 @@ Class {
 	#instVars : [
 		'category',
 		'contents',
-		'startPosition',
-		'stopPosition',
 		'tag'
 	],
 	#category : 'Retumilo',
@@ -28,11 +26,9 @@ RetumiloSection >> category: anObject [
 ]
 
 { #category : 'accessing' }
-RetumiloSection >> category: aCategory contents: aString startPosition: anInteger stopPosition: anOtherInteger [
+RetumiloSection >> category: aCategory contents: aString [
 	category := aCategory.
-	contents := aString.
-	startPosition := anInteger.
-	stopPosition := anOtherInteger
+	contents := aString withoutTrailingNewlines
 ]
 
 { #category : 'accessing' }
@@ -111,33 +107,9 @@ RetumiloSection >> saveOn: aWriteStream [
 	aWriteStream nextPutAll: category name.
 	aWriteStream nextPutAll: category optFile class magicSequence.
 	aWriteStream nextPutAll: category optFile lastSeparator;lf.	
-	aWriteStream nextPutAll: contents.
+	aWriteStream nextPutAll: contents;lf.
 	
 	
-]
-
-{ #category : 'accessing' }
-RetumiloSection >> startPosition [
-
-	^ startPosition
-]
-
-{ #category : 'accessing' }
-RetumiloSection >> startPosition: anObject [
-
-	startPosition := anObject
-]
-
-{ #category : 'accessing' }
-RetumiloSection >> stopPosition [
-
-	^ stopPosition
-]
-
-{ #category : 'accessing' }
-RetumiloSection >> stopPosition: anObject [
-
-	stopPosition := anObject
 ]
 
 { #category : 'searching' }
